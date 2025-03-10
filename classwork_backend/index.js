@@ -4,6 +4,7 @@ const cors = require("cors");
 const app = express();
 const Note = require("./models/note");
 const mongoose = require("mongoose");
+const { browser } = require("globals");
 
 app.use(express.static("dist"));
 app.use(express.json());
