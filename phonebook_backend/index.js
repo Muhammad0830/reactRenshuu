@@ -1,8 +1,11 @@
+require("dotenv").config();
+const mongoose = require("mongoose");
 const express = require("express");
 const app = express();
-const cors = require('cors');
-
-
+const cors = require("cors");
+const Person = require("./models/person");
+const person = require("./models/person");
+const note = require("../classwork_backend/models/note");
 
 const requestLogger = (request, response, next) => {
   console.log("Method:", request.method);
@@ -12,8 +15,8 @@ const requestLogger = (request, response, next) => {
   next();
 };
 
-app.use(express.static("dist"))
-app.use(cors())
+app.use(express.static("dist"));
+app.use(cors());
 app.use(express.json());
 app.use(requestLogger);
 
@@ -40,23 +43,24 @@ let persons = [
   },
 ];
 
-const generateId = () => {
-  const maxId = Math.max(...persons.map((person) => Number(person.id)));
-  return maxId + 1;
-};
-
-app.get("/info", (request, response) => {
-  response.send(`
-    <p>Phonebook has info for ${persons.length} people</p> </br>
+app.get("/info", (request, response, next) => {
+  Person.find({}).then((allPersons) => {
+    response.send(`
+    <p>Phonebook has info for ${allPersons.length} people</p> </br>
     ${new Date()}
     `);
+  });
 });
 
-app.get("/api/persons", (request, response) => {
-  response.json(persons);
+app.get("/api/persons", (request, response, next) => {
+  Person.find({})
+    .then((allPersons) => {
+      response.json(allPersons);
+    })
+    .catch((error) => next(error));
 });
 
-app.post("/api/persons", (request, response) => {
+app.post("/api/persons", (request, response, next) => {
   const body = request.body;
 
   if (!body.name) {
@@ -68,53 +72,84 @@ app.post("/api/persons", (request, response) => {
       error: "Number missing",
     });
   }
-
-  let isIncludesTrue = persons
-    .map((person) =>
-      person.name.toLowerCase() === body.name.toLowerCase() ? true : false
-    )
-    .includes(true);
-
-  if (isIncludesTrue) {
-    return response.status(400).json({
-      error: `the name ${body.name} has been already added. please try another name.`,
-    });
-  }
-
-  const person = {
+  let newError;
+  const person = new Person({
     name: body.name,
     number: body.number,
-    id: generateId(),
-  };
-
-  persons = persons.concat(person);
-
-  response.json(person);
+  });
+  newError = person.validateSync();
+  console.log("error", newError);
+  person
+    .save({ runValidators: true })
+    .then((savedPerson) => {
+      console.log("error", newError);
+      response.json(savedPerson);
+    })
+    .catch((error) => next(error));
 });
 
-app.get("/api/persons/:id", (request, response) => {
-  const id = request.params.id;
-
-  const person = persons.filter((person) => person.id === id);
-  console.log("person", person);
-  response.json(person);
+app.get("/api/persons/:id", (request, response, next) => {
+  Person.findById(request.params.id)
+    .then((person) => {
+      response.json(person);
+    })
+    .catch((error) => next(error));
 });
 
-app.delete("/api/persons/:id", (request, response) => {
+app.delete("/api/persons/:id", (request, response, next) => {
   const id = request.params.id;
+  Person.findByIdAndDelete(id)
+    .then((deletedPerson) => response.status(204).end())
+    .catch((error) => next(error));
+});
 
-  persons = persons.filter((person) => person.id !== id);
+app.put("/api/persons/:id", (request, response, next) => {
+  const { name, number } = request.body;
 
-  response.status(204).end();
+  Person.findByIdAndUpdate(
+    request.params.id,
+    { name, number },
+    { new: true, runValidators: true, context: "query" }
+  )
+    .then((updatedPerson) => {
+      if (updatedPerson) {
+        response.json(updatedPerson);
+      } else {
+        response.status(404).end();
+      }
+    })
+    .catch((error) => next(error));
 });
 
 const unknownEndpoint = (request, response) => {
-  response.status(404).send({ error: "unknown endpoint" });
+  response.status(404).send(`
+    <div style="display:flex; flex-direction:column; align-items: center; color: red">
+    <h1>404</h1>
+    <h2>not found</h2>
+    <h3>unknown endpoint</h3>
+    </div>
+  `);
 };
 
 app.use(unknownEndpoint);
 
-const PORT = process.env.PORT || 3001;
+const errorHandler = (error, request, response, next) => {
+  console.error(error.message);
+
+  if (error.name == "CastError") {
+    return response.status(400).send({ error: "malformatted id" });
+  } else if (error.name === "ValidationError") {
+    const errorMessages = Object.values(error.errors).map((err) => err.message);
+    return response.status(400).json({ error: errorMessages.join(", ") });
+  }
+
+  return response.status(400).json({ error: error.message });
+
+  next(error);
+};
+app.use(errorHandler);
+
+const PORT = process.env.PORT;
 app.listen(PORT, () => {
-  console.log(`the project is running on server ${PORT}`);
+  console.log(`server is running on port ${PORT}`);
 });

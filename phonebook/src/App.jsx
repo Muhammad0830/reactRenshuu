@@ -12,8 +12,9 @@ const App = () => {
   const [newName, setNewName] = useState("");
   const [newNumber, setNewNumber] = useState("");
   const [filterInput, setFilterInput] = useState("");
-  const [errorMessage, setErrorMessage] = useState(null)
-  const [createMessage, setCreateMessage] = useState(null)
+  const [errorMessage, setErrorMessage] = useState(null);
+  const [formErrorMessage, setFormErrorMessage] = useState(null);
+  const [createMessage, setCreateMessage] = useState(null);
 
   useEffect(() => {
     personsService.getAll().then((initialPersons) => {
@@ -62,18 +63,25 @@ const App = () => {
       }
       setNewName("");
       setNewNumber("");
-    } else if(isNumberTheSame) {
-      alert(`the number ${newNumber} is already added to phonebook. please enter another one`)
-      setNewName('')
-      setNewNumber('')
+    } else if (isNumberTheSame) {
+      alert(
+        `the number ${newNumber} is already added to phonebook. please enter another one`
+      );
+      setNewName("");
+      setNewNumber("");
     } else {
-      personsService.create(newPersonObject).then((returnedPerson) => {
-        setCreateMessage(`added ${newName} succesfully`)
-        setTimeout(() => {
-          setCreateMessage(null)
-        }, 3000);
-        setPersons(persons.concat(returnedPerson));
-      });
+      personsService
+        .create(newPersonObject)
+        .then((returnedPerson) => {
+          setCreateMessage(`added ${newName} succesfully`);
+          setTimeout(() => {
+            setCreateMessage(null);
+          }, 3000);
+          setPersons(persons.concat(returnedPerson));
+        })
+        .catch((error) => {
+          setFormErrorMessage(error.response.data.error)
+        });
       setNewName("");
       setNewNumber("");
     }
@@ -93,20 +101,22 @@ const App = () => {
   console.log(persons);
 
   const handleDelete = (id) => {
-    let deletedPerson = persons.filter(person => person.id === id)
+    let deletedPerson = persons.filter((person) => person.id === id);
     personsService
       .remove(id)
       .then(setPersons(persons.filter((person) => person.id !== id)))
-      .catch(error => {
-        setErrorMessage(`the information of ${deletedPerson[0].name} has already been removed from server`)
+      .catch((error) => {
+        setErrorMessage(
+          `the information of ${deletedPerson[0].name} has already been removed from server`
+        );
         setTimeout(() => {
-          setErrorMessage(null)
+          setErrorMessage(null);
         }, 3000);
       });
   };
   return (
     <div>
-      <Notification errorMessage={errorMessage} createMessage={createMessage}/>
+      <Notification errorMessage={errorMessage} createMessage={createMessage} />
       <h2>Phonebook</h2>
       <Filter filterInput={filterInput} handleFilterInput={handleFilterInput} />
       <h2>add a new</h2>
@@ -116,6 +126,7 @@ const App = () => {
         handleOnchangeName={handleOnchangeName}
         newNumber={newNumber}
         handleOnchangeNumber={handleOnchangeNumber}
+        errorMessage={formErrorMessage}
       />
       <h2>Numbers</h2>
       <Numbers persons={filteredPersons} handleDelete={handleDelete} />

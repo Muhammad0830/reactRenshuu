@@ -6,19 +6,24 @@ const PersonForm = ({
   handleOnchangeName,
   newNumber,
   handleOnchangeNumber,
+  errorMessage,
 }) => {
   return (
     <form onSubmit={handleSubmitBtn}>
       <div>
-        name: <input value={newName} onChange={handleOnchangeName} />
+        <label htmlFor="input" style={{ color: "red" }}>
+          {errorMessage}
+        </label>
+        <div>
+          name:{" "}
+          <input name="input" value={newName} onChange={handleOnchangeName} />
+        </div>
       </div>
       <div>
-        number:{" "}
-        <input
-          type="number"
-          value={newNumber}
-          onChange={handleOnchangeNumber}
-        />
+        <label htmlFor="input"></label>
+        <div>
+          number: <input value={newNumber} onChange={handleOnchangeNumber} />
+        </div>
       </div>
       <div>
         <button type="submit">add</button>
